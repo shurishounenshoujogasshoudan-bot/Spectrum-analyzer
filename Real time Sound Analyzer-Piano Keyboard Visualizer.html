@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>アコースティック解析用・ピアノ音階アナライザー (iOS対応版)</title>
+
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #080808;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      touch-action: manipulation;
+      /* iOS Notch / Home Indicator Safe Area 対応 */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      box-sizing: border-box;
+    }
+
+    /* iPhone全画面化用クラス */
+    body.pseudo-fullscreen #topBar {
+      display: none; /* 全画面時はトップバーを隠して画面を広く使う */
+    }
+
+    #topBar {
+      background: #121212;
+      border-bottom: 1px solid #222;
+      padding: 6px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #info {
+      font-size: 14px;
+      font-weight: bold;
+      color: #00e5ff;
+      text-shadow: 0 0 8px rgba(0,229,255,0.4);
+      white-space: nowrap;
+    }
+
+    button {
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #0077bb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      transition: 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { background: #0099dd; }
+
+    #fullscreenBtn {
+      background: #333;
+      border: 1px solid #555;
+    }
+
+    /* 疑似全画面時の解除ボタン */
+    #exitFullscreenBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 20;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      display: none;
+    }
+    body.pseudo-fullscreen #exitFullscreenBtn {
+      display: block;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #aaa;
+    }
+    input[type=range] { vertical-align: middle; cursor: pointer; }
+
+    #canvasContainer {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="topBar">
+    <div id="controls">
+      <button id="startBtn">解析を開始する</button>
+      <button id="fullscreenBtn">画面最大化</button>
+      <div class="slider-group">
+        <label for="minDbSlider">感度:</label>
+        <input type="range" id="minDbSlider" min="-100" max="-40" value="-80" step="5">
+        <span id="minDbValue">-80 dB</span>
+      </div>
+    </div>
+    <div id="info">マイク待機中...</div>
+  </div>
+  
+  <button id="exitFullscreenBtn">通常表示に戻す</button>
+
+  <div id="canvasContainer">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const startBtn = document.getElementById('startBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+    const infoDiv = document.getElementById('info');
+    const minDbSlider = document.getElementById('minDbSlider');
+    const minDbValueSpan = document.getElementById('minDbValue');
+
+    const numKeys = 88;
+    const minMidi = 21;
+    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const isBlackKeyList = [false, true, false, true, false, false, true, false, true, false, true, false];
+
+    let keyLUT = [];
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    let minDb = -80;
+    const maxDbLimit = 0;
+
+    minDbSlider.addEventListener('input', (e) => {
+      minDb = parseInt(e.target.value);
+      minDbValueSpan.innerText = `${minDb} dB`;
+    });
+
+    function resizeCanvas() {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeCanvas, 200);
+    });
+    resizeCanvas();
+
+    // iOS対応: 疑似全画面モード切り替え
+    fullscreenBtn.addEventListener('click', () => {
+      document.body.classList.add('pseudo-fullscreen');
+      resizeCanvas();
+    });
+
+    exitFullscreenBtn.addEventListener('click', () => {
+      document.body.classList.remove('pseudo-fullscreen');
+      resizeCanvas();
+    });
+
+    startBtn.addEventListener('click', async () => {
+      startBtn.style.display = 'none';
+      infoDiv.innerText = "マイク準備中...";
+
+      // AudioContext作成 (iOS/Safari互換処理)
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      let stream;
+      // iOSでの互換性を考慮したマイク権限リクエスト
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          }
+        });
+      } catch (err) {
+        // 設定拒否された場合はシンプルな条件で再試行
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err2) {
+          infoDiv.innerText = "マイクの利用が許可されませんでした。";
+          startBtn.style.display = 'inline-block';
+          return;
+        }
+      }
+      
+      infoDiv.innerText = "解析中...";
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 8192;
+      analyser.smoothingTimeConstant = 0.1;
+      
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Float32Array(bufferLength);
+      const sampleRate = audioCtx.sampleRate;
+
+      // 鍵盤LUT事前計算
+      keyLUT = [];
+      for (let i = 0; i < numKeys; i++) {
+        const midi = minMidi + i;
+        const noteIndex = midi % 12;
+        const freqLow = midiToFreq(midi - 0.5);
+        const freqHigh = midiToFreq(midi + 0.5);
+        
+        keyLUT.push({
+          midi: midi,
+          noteName: noteNames[noteIndex],
+          octave: Math.floor(midi / 12) - 1,
+          isBlack: isBlackKeyList[noteIndex],
+          freqCenter: Math.round(midiToFreq(midi)),
+          indexLow: Math.floor(freqLow / (sampleRate / analyser.fftSize)),
+          indexHigh: Math.ceil(freqHigh / (sampleRate / analyser.fftSize)),
+          hue: (i / numKeys) * 320
+        });
+      }
+
+      const noteVolumes = new Float32Array(numKeys);
+
+      function draw() {
+        requestAnimationFrame(draw);
+        analyser.getFloatFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const paddingLeft = 45;
+        const indicatorAreaHeight = 20;
+        const keyAreaHeight = Math.max(35, Math.min(65, canvas.height * 0.18));
+        const spectrumWidth = canvas.width - paddingLeft;
+        const spectrumHeight = canvas.height - keyAreaHeight - indicatorAreaHeight;
+        const barWidth = spectrumWidth / numKeys;
+        const dbRange = maxDbLimit - minDb;
+
+        // 1. 縦軸(dB)描画
+        ctx.fillStyle = "#666";
+        ctx.font = "10px -apple-system, monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+
+        const dbStep = (dbRange > 60) ? 20 : 10;
+        for (let db = maxDbLimit; db >= minDb; db -= dbStep) {
+          const y = spectrumHeight - (((db - minDb) / dbRange) * spectrumHeight);
+          if (y < 0) continue;
+
+          ctx.strokeStyle = (db === maxDbLimit) ? "rgba(255, 255, 255, 0.4)" : "rgba(255, 255, 255, 0.08)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(paddingLeft, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+
+          ctx.fillText(`${db}dB`, paddingLeft - 5, y);
+        }
+
+        // 2. 音量データ計算
+        let maxVolumeDb = -200;
+        let peakKeyIndex = -1;
+
+        for (let i = 0; i < numKeys; i++) {
+          const key = keyLUT[i];
+          let maxDb = -200;
+          for (let j = key.indexLow; j <= key.indexHigh; j++) {
+            if (j < bufferLength && dataArray[j] > maxDb) {
+              maxDb = dataArray[j];
+            }
+          }
+          noteVolumes[i] = maxDb;
+
+          if (maxDb > maxVolumeDb && maxDb > -100) {
+            maxVolumeDb = maxDb;
+            peakKeyIndex = i;
+          }
+        }
+
+        // ピーク音表示
+        if (peakKeyIndex !== -1 && maxVolumeDb > minDb) {
+          const pk = keyLUT[peakKeyIndex];
+          infoDiv.innerText = `基音: ${pk.noteName}${pk.octave} (${pk.freqCenter} Hz) / ${Math.round(maxVolumeDb)} dB`;
+        } else {
+          infoDiv.innerText = "音声を待機中...";
+        }
+
+        // 3. グラフ＆鍵盤描画
+        for (let i = 0; i < numKeys; i++) {
+          const key = keyLUT[i];
+          const maxDb = noteVolumes[i];
+
+          let normalized = (maxDb - minDb) / dbRange;
+          if (normalized < 0) normalized = 0;
+          if (normalized > 1) normalized = 1;
+
+          const barHeight = normalized * spectrumHeight;
+          const x = paddingLeft + (i * barWidth);
+          const y = spectrumHeight - barHeight;
+
+          // 背景
+          ctx.fillStyle = key.isBlack ? "rgba(10, 10, 10, 0.9)" : "rgba(25, 25, 25, 0.4)";
+          ctx.fillRect(x, 0, barWidth - 0.5, spectrumHeight);
+
+          // バー
+          if (barHeight > 1) {
+            ctx.fillStyle = key.isBlack ? `hsl(${key.hue}, 60%, 40%)` : `hsl(${key.hue}, 80%, 55%)`;
+            ctx.fillRect(x, y, barWidth - 0.5, barHeight);
+          }
+
+          // 鍵盤
+          const keyY = spectrumHeight;
+
+          if (key.isBlack) {
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fillRect(x, keyY, barWidth - 0.5, keyAreaHeight * 0.7);
+          } else {
+            ctx.fillStyle = "#fafafa";
+            ctx.fillRect(x, keyY, barWidth - 0.5, keyAreaHeight);
+
+            // Cの音だけラベルを描画
+            if (key.noteName === "C") {
+              ctx.fillStyle = "#ff3333";
+              ctx.font = "bold 9px sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText(`C${key.octave}`, x + barWidth / 2, keyY + keyAreaHeight - 4);
+            }
+          }
+
+          // 基音マーカー（青●）
+          if (i === peakKeyIndex && maxVolumeDb > minDb) {
+            const centerX = x + barWidth / 2;
+            const centerY = canvas.height - indicatorAreaHeight / 2;
+            const radius = Math.min(barWidth * 1.2, 6);
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#00aaff";
+            ctx.fill();
+          }
+        }
+      }
+
+      draw();
+    });
+  </script>
+</body>
+</html>
