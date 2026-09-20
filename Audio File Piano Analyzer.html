@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ピアノスペクトログラム (縦スクロール版)</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      background-color: #121212;
+      color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100%;
+      box-sizing: border-box;
+      /* iPhone Safe Area 対応 */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* 疑似全画面時の表示制御 */
+    body.is-fullscreen h2,
+    body.is-fullscreen .controls {
+      display: none !important;
+    }
+
+    h2 {
+      margin: 10px 0 5px 0;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+
+    .controls { 
+      text-align: center; 
+      width: 100%; 
+      padding: 10px 12px;
+      background: #1e1e1e;
+      border-top: 1px solid #333;
+      border-bottom: 1px solid #333;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .control-group {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      font-size: 14px;
+      flex-wrap: wrap;
+    }
+    .control-group input[type="range"] {
+      width: 150px;
+    }
+    .control-group select {
+      background: #2a2a2a;
+      color: #00e5ff;
+      border: 1px solid #444;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn {
+      background: #00e5ff;
+      color: #000;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active {
+      opacity: 0.8;
+    }
+    audio { width: 90%; max-width: 500px; margin-top: 6px; }
+    
+    .main-container {
+      display: flex;
+      flex: 1;
+      height: 0;
+      background-color: #000;
+      width: 100%;
+      position: relative;
+    }
+
+    /* 疑似全画面時の解除ボタン */
+    #exitFullscreenBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: none;
+      cursor: pointer;
+    }
+    body.is-fullscreen #exitFullscreenBtn {
+      display: block;
+    }
+
+    .spectrogram-wrapper {
+      position: relative;
+      cursor: ns-resize;
+      overflow-y: auto;
+      overflow-x: hidden;
+      height: 100%;
+      width: 100%;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-y;
+    }
+    #spectrogramCanvas {
+      display: block;
+      touch-action: none;
+      margin: 0 auto;
+    }
+    #status {
+      margin-top: 6px;
+      color: #00e5ff;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>ピアノスペクトログラム (縦スクロール版)</h2>
+  
+  <div class="controls">
+    <input type="file" id="fileInput" accept="audio/*"><br>
+    <audio id="audio" controls></audio>
+    
+    <div class="control-group">
+      <div>
+        <label for="sensSlider">表示感度 (明るさ):</label>
+        <input type="range" id="sensSlider" min="0.5" max="10" step="0.5" value="2.0">
+        <span id="sensVal">2.0x</span>
+      </div>
+
+      <div>
+        <label for="rateSelect">再生速度:</label>
+        <select id="rateSelect">
+          <option value="1.00" selected>1.00x (100%)</option>
+          <option value="0.95">0.95x (95%)</option>
+          <option value="0.90">0.90x (90%)</option>
+          <option value="0.85">0.85x (85%)</option>
+          <option value="0.80">0.80x (80%)</option>
+          <option value="0.75">0.75x (75%)</option>
+          <option value="0.70">0.70x (70%)</option>
+          <option value="0.65">0.65x (65%)</option>
+          <option value="0.60">0.60x (60%)</option>
+          <option value="0.55">0.55x (55%)</option>
+          <option value="0.50">0.50x (50%)</option>
+          <option value="0.45">0.45x (45%)</option>
+          <option value="0.40">0.40x (40%)</option>
+          <option value="0.35">0.35x (35%)</option>
+          <option value="0.30">0.30x (30%)</option>
+          <option value="0.25">0.25x (25%)</option>
+          <option value="0.20">0.20x (20%)</option>
+        </select>
+      </div>
+
+      <button id="fullscreenBtn" class="btn">画面最大化</button>
+    </div>
+
+    <div id="status">音声ファイル（WAV/MP3等）を選択してください</div>
+  </div>
+
+  <div class="main-container">
+    <button id="exitFullscreenBtn">通常表示に戻す</button>
+    <div class="spectrogram-wrapper" id="specWrapper">
+      <canvas id="spectrogramCanvas" width="1000" height="1000"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const audio = document.getElementById('audio');
+    const statusEl = document.getElementById('status');
+    const specWrapper = document.getElementById('specWrapper');
+    const sensSlider = document.getElementById('sensSlider');
+    const sensVal = document.getElementById('sensVal');
+    const rateSelect = document.getElementById('rateSelect');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+    
+    const specCanvas = document.getElementById('spectrogramCanvas');
+    const specCtx = specCanvas.getContext('2d');
+
+    const NUM_KEYS = 88;
+    const MIN_MIDI = 21;
+    const PIXELS_PER_SECOND = 100;
+    const PIANO_HEIGHT = 28;
+
+    let audioCtx = null;
+    let audioBuffer = null;
+    let offscreenCanvas = null;
+    let isDragging = false;
+    
+    let rawAnalysisData = null; 
+    let analysisHeight = 0;
+
+    let lastViewTop = 0;
+    let lastViewHeight = 0;
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function isBlackKey(midi) {
+      const note = midi % 12;
+      return [1, 3, 6, 8, 10].includes(note);
+    }
+
+    function unlockAudioContext() {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    audio.addEventListener('play', unlockAudioContext);
+
+    rateSelect.addEventListener('change', () => {
+      audio.playbackRate = parseFloat(rateSelect.value);
+    });
+
+    // 全画面/最大化切り替え処理 (iOS・Android・PC対応)
+    function toggleFullscreen() {
+      const isFullscreenAPI = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      const isPseudoFullscreen = document.body.classList.contains('is-fullscreen');
+
+      if (!isFullscreenAPI && !isPseudoFullscreen) {
+        // 全画面化を試みる
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(() => {
+            // iOS等で失敗した場合は疑似全画面にフォールバック
+            document.body.classList.add('is-fullscreen');
+            resizeCanvasToFit();
+          });
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        } else {
+          // API非対応（iPhone Safari等）
+          document.body.classList.add('is-fullscreen');
+          resizeCanvasToFit();
+        }
+      } else {
+        // 解除処理
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        document.body.classList.remove('is-fullscreen');
+        resizeCanvasToFit();
+      }
+    }
+
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    exitFullscreenBtn.addEventListener('click', () => {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+      document.body.classList.remove('is-fullscreen');
+      resizeCanvasToFit();
+    });
+
+    function resizeCanvasToFit() {
+      const wrapperWidth = specWrapper.clientWidth;
+      if (wrapperWidth && specCanvas.width !== wrapperWidth) {
+        specCanvas.width = wrapperWidth;
+        updateSpectrogramImage();
+      }
+    }
+
+    function updateFullscreenState() {
+      const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.body.classList.contains('is-fullscreen'));
+      fullscreenBtn.textContent = isFullscreen ? '画面標準化' : '画面最大化';
+      document.body.classList.toggle('is-fullscreen', isFullscreen);
+      
+      setTimeout(() => {
+        resizeCanvasToFit();
+      }, 100);
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenState);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenState);
+    window.addEventListener('resize', () => {
+      resizeCanvasToFit();
+    });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeCanvasToFit, 200);
+    });
+
+    // 鍵盤および赤線（再生位置）の描画
+    function drawMovingPianoAndPlayhead(ctx, playheadY) {
+      const w = ctx.canvas.width;
+      const keyW = w / NUM_KEYS;
+      
+      const startY = playheadY;
+
+      for (let i = 0; i < NUM_KEYS; i++) {
+        const midi = i + MIN_MIDI;
+        const x = i * keyW;
+        const isBlack = isBlackKey(midi);
+
+        ctx.fillStyle = isBlack ? 'rgba(20, 20, 20, 0.95)' : 'rgba(240, 240, 240, 0.95)';
+        ctx.fillRect(x, startY, keyW, PIANO_HEIGHT);
+        
+        ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, startY, keyW, PIANO_HEIGHT);
+
+        if (midi % 12 === 0) {
+          const octave = (midi / 12) - 1;
+          const label = `C${octave}`;
+
+          ctx.fillStyle = '#ff3333';
+          ctx.fillRect(x, startY, 1, PIANO_HEIGHT);
+
+          ctx.fillStyle = isBlack ? '#ff8888' : '#cc0000';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(label, x + keyW / 2, startY + 2);
+        }
+      }
+
+      ctx.strokeStyle = '#ff2222';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, playheadY);
+      ctx.lineTo(w, playheadY);
+      ctx.stroke();
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      statusEl.textContent = '音声ファイルをデコード中...';
+      audio.src = URL.createObjectURL(file);
+      audio.playbackRate = parseFloat(rateSelect.value);
+
+      if (!audioCtx) {
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtxClass();
+      }
+      unlockAudioContext();
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+        const wrapperW = specWrapper.clientWidth || 1000;
+        specCanvas.width = wrapperW;
+
+        const screenMinPx = specWrapper.clientHeight;
+        const calculatedHeight = Math.max(screenMinPx, Math.floor(audioBuffer.duration * PIXELS_PER_SECOND));
+        specCanvas.height = calculatedHeight;
+
+        await renderFullSpectrogram(audioBuffer);
+        statusEl.textContent = '解析完了！';
+      } catch (err) {
+        statusEl.textContent = '音声ファイルの読み込みに失敗しました。';
+      }
+    });
+
+    async function renderFullSpectrogram(buffer) {
+      const pcm = buffer.getChannelData(0);
+      const sampleRate = buffer.sampleRate;
+      const height = specCanvas.height;
+      analysisHeight = height;
+
+      rawAnalysisData = new Float32Array(height * NUM_KEYS);
+
+      const keyFreqs = new Float32Array(NUM_KEYS);
+      for (let i = 0; i < NUM_KEYS; i++) {
+        keyFreqs[i] = midiToFreq(i + MIN_MIDI);
+      }
+
+      const windowSize = 4096;
+      const halfWin = windowSize / 2;
+      const totalSamples = pcm.length;
+
+      const hannWindow = new Float32Array(windowSize);
+      for (let n = 0; n < windowSize; n++) {
+        hannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / windowSize));
+      }
+
+      const keyCoeffs = new Float32Array(NUM_KEYS);
+      for (let k = 0; k < NUM_KEYS; k++) {
+        const omega = (2 * Math.PI * keyFreqs[k]) / sampleRate;
+        keyCoeffs[k] = 2 * Math.cos(omega);
+      }
+
+      const frame = new Float32Array(windowSize);
+
+      for (let y = 0; y < height; y++) {
+        const centerSample = Math.floor(((height - 1 - y) / height) * totalSamples);
+        const startSample = centerSample - halfWin;
+
+        for (let n = 0; n < windowSize; n++) {
+          const idx = startSample + n;
+          frame[n] = (idx >= 0 && idx < totalSamples) ? pcm[idx] * hannWindow[n] : 0;
+        }
+
+        for (let k = 0; k < NUM_KEYS; k++) {
+          const coeff = keyCoeffs[k];
+          let s1 = 0, s2 = 0;
+
+          for (let n = 0; n < windowSize; n++) {
+            const s0 = frame[n] + coeff * s1 - s2;
+            s2 = s1;
+            s1 = s0;
+          }
+
+          const power = Math.max(0, s1 * s1 + s2 * s2 - coeff * s1 * s2);
+          const mag = Math.sqrt(power) / (windowSize / 4);
+          rawAnalysisData[y * NUM_KEYS + k] = mag;
+        }
+
+        if (y % 100 === 0) {
+          statusEl.textContent = `解析中... (${Math.round((y / height) * 100)}%)`;
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+
+      updateSpectrogramImage();
+    }
+
+    function updateSpectrogramImage() {
+      if (!rawAnalysisData) return;
+
+      const width = specCanvas.width;
+      const height = analysisHeight;
+      const keyW = width / NUM_KEYS;
+      const sensitivity = parseFloat(sensSlider.value);
+
+      offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = width;
+      offscreenCanvas.height = height;
+      const offCtx = offscreenCanvas.getContext('2d');
+
+      const imgData = offCtx.createImageData(width, height);
+      const data = imgData.data;
+
+      for (let i = 3; i < data.length; i += 4) {
+        data[i] = 255;
+      }
+
+      const keyXBounds = new Array(NUM_KEYS);
+      for (let k = 0; k < NUM_KEYS; k++) {
+        keyXBounds[k] = {
+          start: Math.floor(k * keyW),
+          end: Math.floor((k + 1) * keyW)
+        };
+      }
+
+      for (let y = 0; y < height; y++) {
+        const yOffset = y * width;
+        const rowDataIdx = y * NUM_KEYS;
+
+        for (let k = 0; k < NUM_KEYS; k++) {
+          const mag = rawAnalysisData[rowDataIdx + k];
+          const val = Math.min(1, Math.max(0, Math.log10(1 + mag * 25 * sensitivity)));
+
+          if (val > 0.01) {
+            let r = 0, g = 0, b = 0;
+            if (val < 0.25) {
+              b = Math.floor((val / 0.25) * 180);
+            } else if (val < 0.55) {
+              const t = (val - 0.25) / 0.3;
+              g = Math.floor(t * 200);
+              b = 180 + Math.floor(t * 75);
+            } else if (val < 0.85) {
+              const t = (val - 0.55) / 0.3;
+              r = Math.floor(t * 255);
+              g = 200 + Math.floor(t * 55);
+              b = Math.floor((1 - t) * 255);
+            } else {
+              const t = (val - 0.85) / 0.15;
+              r = 255;
+              g = 255;
+              b = Math.floor(t * 255);
+            }
+
+            const xStart = keyXBounds[k].start;
+            const xEnd = keyXBounds[k].end;
+
+            for (let x = xStart; x < xEnd; x++) {
+              const pIdx = (yOffset + x) * 4;
+              data[pIdx] = r;
+              data[pIdx + 1] = g;
+              data[pIdx + 2] = b;
+            }
+          }
+        }
+      }
+
+      offCtx.putImageData(imgData, 0, 0);
+      redraw();
+    }
+
+    sensSlider.addEventListener('input', () => {
+      sensVal.textContent = `${parseFloat(sensSlider.value).toFixed(1)}x`;
+      updateSpectrogramImage();
+    });
+
+    function redraw() {
+      let playheadY = 0;
+
+      if (audio.duration) {
+        const progress = audio.currentTime / audio.duration;
+        playheadY = (1 - progress) * specCanvas.height;
+
+        if (!audio.paused && !isDragging) {
+          specWrapper.scrollTop = playheadY - specWrapper.clientHeight / 2;
+        }
+      }
+
+      const viewTop = Math.max(0, Math.floor(specWrapper.scrollTop - 50));
+      const viewHeight = Math.ceil(specWrapper.clientHeight + 100);
+      const drawH = Math.min(viewHeight, specCanvas.height - viewTop);
+
+      const clearTop = Math.min(lastViewTop, viewTop);
+      const clearH = Math.max(lastViewTop + lastViewHeight, viewTop + drawH) - clearTop;
+
+      if (clearH > 0) {
+        specCtx.clearRect(0, clearTop, specCanvas.width, clearH);
+
+        if (offscreenCanvas) {
+          specCtx.drawImage(
+            offscreenCanvas,
+            0, clearTop, specCanvas.width, clearH,
+            0, clearTop, specCanvas.width, clearH
+          );
+        } else {
+          specCtx.fillStyle = '#000';
+          specCtx.fillRect(0, clearTop, specCanvas.width, clearH);
+        }
+      }
+
+      lastViewTop = viewTop;
+      lastViewHeight = drawH;
+
+      if (audio.duration) {
+        drawMovingPianoAndPlayhead(specCtx, playheadY);
+      }
+
+      requestAnimationFrame(redraw);
+    }
+
+    redraw();
+
+    function seekToPosition(clientY) {
+      if (!audio.duration || !audioBuffer) return;
+      const rect = specCanvas.getBoundingClientRect();
+      const clickY = clientY - rect.top;
+      const clampedY = Math.max(0, Math.min(clickY, specCanvas.height));
+      
+      const targetTime = (1 - (clampedY / specCanvas.height)) * audio.duration;
+      audio.currentTime = targetTime;
+    }
+
+    specCanvas.addEventListener('pointerdown', (e) => {
+      unlockAudioContext();
+      isDragging = true;
+      try { specCanvas.setPointerCapture(e.pointerId); } catch(err) {}
+      seekToPosition(e.clientY);
+    });
+
+    specCanvas.addEventListener('pointermove', (e) => {
+      if (isDragging) {
+        seekToPosition(e.clientY);
+      }
+    });
+
+    const stopDrag = (e) => {
+      if (isDragging) {
+        isDragging = false;
+        try { specCanvas.releasePointerCapture(e.pointerId); } catch(err) {}
+      }
+    };
+
+    specCanvas.addEventListener('pointerup', stopDrag);
+    specCanvas.addEventListener('pointercancel', stopDrag);
+  </script>
+</body>
+</html>
