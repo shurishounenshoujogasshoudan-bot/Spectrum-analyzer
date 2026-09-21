@@ -262,8 +262,11 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const paddingLeft = 45;
-        const indicatorAreaHeight = 20;
-        const keyAreaHeight = Math.max(35, Math.min(65, canvas.height * 0.18));
+        const indicatorAreaHeight = 16;
+        
+        // ピアノ鍵盤の高さを15px〜25pxにスリム化
+        const keyAreaHeight = Math.max(15, Math.min(25, canvas.height * 0.08));
+        
         const spectrumWidth = canvas.width - paddingLeft;
         const spectrumHeight = canvas.height - keyAreaHeight - indicatorAreaHeight;
         const barWidth = spectrumWidth / numKeys;
@@ -354,9 +357,9 @@
             // Cの音だけラベルを描画
             if (key.noteName === "C") {
               ctx.fillStyle = "#ff3333";
-              ctx.font = "bold 9px sans-serif";
+              ctx.font = "bold 8px sans-serif";
               ctx.textAlign = "center";
-              ctx.fillText(`C${key.octave}`, x + barWidth / 2, keyY + keyAreaHeight - 4);
+              ctx.fillText(`C${key.octave}`, x + barWidth / 2, keyY + keyAreaHeight - 2);
             }
           }
 
@@ -364,7 +367,7 @@
           if (i === peakKeyIndex && maxVolumeDb > minDb) {
             const centerX = x + barWidth / 2;
             const centerY = canvas.height - indicatorAreaHeight / 2;
-            const radius = Math.min(barWidth * 1.2, 6);
+            const radius = Math.min(barWidth * 1.0, 5);
 
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
