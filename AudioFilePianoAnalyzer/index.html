@@ -3,119 +3,200 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>ピアノスペクトログラム (縦スクロール版)</title>
+  <title>Audio File Analyzer (C10色域拡張版)</title>
   <style>
     html, body {
+      width: 100%;
       height: 100%;
       margin: 0;
       padding: 0;
-      overflow: hidden;
-    }
-    body {
-      background-color: #121212;
-      color: #eee;
+      background: #080808;
+      color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      height: 100vh;
-      width: 100%;
-      box-sizing: border-box;
-      /* iPhone Safe Area 対応 */
+      touch-action: manipulation;
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
-    }
-
-    /* 疑似全画面時の表示制御 */
-    body.is-fullscreen h2,
-    body.is-fullscreen .controls {
-      display: none !important;
-    }
-
-    h2 {
-      margin: 10px 0 5px 0;
-      font-size: 1.2rem;
-      text-align: center;
-    }
-
-    .controls { 
-      text-align: center; 
-      width: 100%; 
-      padding: 10px 12px;
-      background: #1e1e1e;
-      border-top: 1px solid #333;
-      border-bottom: 1px solid #333;
       box-sizing: border-box;
-      flex-shrink: 0;
     }
-    .control-group {
-      margin-top: 8px;
+
+    #topBar {
+      background: #121212;
+      border-bottom: 1px solid #222;
+      padding: 6px 12px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 15px;
-      font-size: 14px;
+      justify-content: space-between;
+      gap: 8px;
+      z-index: 10;
       flex-wrap: wrap;
-    }
-    .control-group input[type="range"] {
-      width: 150px;
-    }
-    .control-group select {
-      background: #2a2a2a;
-      color: #00e5ff;
-      border: 1px solid #444;
-      padding: 5px 8px;
-      border-radius: 4px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .btn {
-      background: #00e5ff;
-      color: #000;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 4px;
-      font-weight: bold;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn:active {
-      opacity: 0.8;
-    }
-    audio { width: 90%; max-width: 500px; margin-top: 6px; }
-    
-    .main-container {
-      display: flex;
-      flex: 1;
-      height: 0;
-      background-color: #000;
-      width: 100%;
-      position: relative;
+      transition: all 0.2s ease;
     }
 
-    /* 疑似全画面時の解除ボタン */
-    #exitFullscreenBtn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 100;
-      background: rgba(0, 0, 0, 0.7);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
+    body.pseudo-fullscreen #topBar {
+      padding: 4px 8px;
+      gap: 6px;
+      background: rgba(18, 18, 18, 0.92);
+    }
+    body.pseudo-fullscreen #appTitle {
       display: none;
+    }
+
+    #appTitle {
+      font-size: 14px;
+      font-weight: bold;
+      color: #eee;
+      margin: 0;
+    }
+
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+
+    .ctrl-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #aaa;
+    }
+
+    input[type="file"] {
+      font-size: 11px;
+      color: #ccc;
+      max-width: 160px;
+    }
+
+    .seek-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 140px;
+      max-width: 280px;
+    }
+
+    #seekSlider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #444;
+      outline: none;
       cursor: pointer;
     }
-    body.is-fullscreen #exitFullscreenBtn {
+
+    #seekSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 4px rgba(255,255,255,0.8);
+      cursor: pointer;
+    }
+
+    #seekSlider::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 4px rgba(255,255,255,0.8);
+      cursor: pointer;
+      border: none;
+    }
+
+    #timeDisplay {
+      font-size: 10px;
+      font-family: monospace;
+      color: #aaa;
+      white-space: nowrap;
+    }
+
+    button, select {
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #0077bb;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      transition: 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { background: #0099dd; }
+
+    #playBtn {
+      background: #00aaff;
+      color: #000;
+      min-width: 50px;
+    }
+
+    select {
+      background: #222;
+      border: 1px solid #444;
+      color: #00e5ff;
+    }
+
+    #fullscreenBtn {
+      background: #333;
+      border: 1px solid #555;
+    }
+
+    #exitFullscreenBtn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: #fff;
+      display: none;
+      font-size: 11px;
+      padding: 4px 8px;
+    }
+    body.pseudo-fullscreen #exitFullscreenBtn {
       display: block;
+    }
+
+    #info {
+      font-size: 12px;
+      font-weight: bold;
+      color: #00e5ff;
+      text-shadow: 0 0 6px rgba(0,229,255,0.4);
+      white-space: nowrap;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #aaa;
+    }
+    input[type=range].sens-input { vertical-align: middle; cursor: pointer; width: 65px; }
+
+    .main-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #000;
     }
 
     .spectrogram-wrapper {
       position: relative;
-      cursor: ns-resize;
       overflow-y: auto;
       overflow-x: hidden;
       height: 100%;
@@ -124,73 +205,68 @@
       -webkit-user-select: none;
       touch-action: pan-y;
     }
-    #spectrogramCanvas {
+
+    canvas {
       display: block;
-      touch-action: none;
       margin: 0 auto;
-    }
-    #status {
-      margin-top: 6px;
-      color: #00e5ff;
-      font-size: 13px;
+      touch-action: none;
     }
   </style>
 </head>
 <body>
 
-  <h2>ピアノスペクトログラム (縦スクロール版)</h2>
-  
-  <div class="controls">
-    <input type="file" id="fileInput" accept="audio/*"><br>
-    <audio id="audio" controls></audio>
-    
-    <div class="control-group">
-      <div>
-        <label for="sensSlider">表示感度 (明るさ):</label>
-        <input type="range" id="sensSlider" min="0.5" max="10" step="0.5" value="2.0">
+  <div id="topBar">
+    <span id="appTitle">Audio File Analyzer</span>
+    <div id="controls">
+      <input type="file" id="fileInput" accept="audio/*">
+      
+      <button id="playBtn">再生</button>
+
+      <div class="seek-container">
+        <input type="range" id="seekSlider" min="0" max="100" value="0" step="0.1">
+        <span id="timeDisplay">0:00 / 0:00</span>
+      </div>
+
+      <audio id="audio" style="display:none;"></audio>
+      
+      <div class="slider-group">
+        <label for="sensSlider">感度:</label>
+        <input type="range" id="sensSlider" class="sens-input" min="0.5" max="10" step="0.5" value="2.0">
         <span id="sensVal">2.0x</span>
       </div>
 
-      <div>
-        <label for="rateSelect">再生速度:</label>
+      <div class="ctrl-item">
+        <label for="rateSelect">速度:</label>
         <select id="rateSelect">
-          <option value="1.00" selected>1.00x (100%)</option>
-          <option value="0.95">0.95x (95%)</option>
-          <option value="0.90">0.90x (90%)</option>
-          <option value="0.85">0.85x (85%)</option>
-          <option value="0.80">0.80x (80%)</option>
-          <option value="0.75">0.75x (75%)</option>
-          <option value="0.70">0.70x (70%)</option>
-          <option value="0.65">0.65x (65%)</option>
-          <option value="0.60">0.60x (60%)</option>
-          <option value="0.55">0.55x (55%)</option>
-          <option value="0.50">0.50x (50%)</option>
-          <option value="0.45">0.45x (45%)</option>
-          <option value="0.40">0.40x (40%)</option>
-          <option value="0.35">0.35x (35%)</option>
-          <option value="0.30">0.30x (30%)</option>
-          <option value="0.25">0.25x (25%)</option>
-          <option value="0.20">0.20x (20%)</option>
+          <option value="1.00" selected>1.00x</option>
+          <option value="0.90">0.90x</option>
+          <option value="0.80">0.80x</option>
+          <option value="0.75">0.75x</option>
+          <option value="0.60">0.60x</option>
+          <option value="0.50">0.50x</option>
         </select>
       </div>
 
-      <button id="fullscreenBtn" class="btn">画面最大化</button>
+      <button id="fullscreenBtn">画面最大化</button>
     </div>
-
-    <div id="status">音声ファイル（WAV/MP3等）を選択してください</div>
+    <div id="info">ファイルを選択してください</div>
   </div>
 
+  <button id="exitFullscreenBtn">通常表示に戻す</button>
+
   <div class="main-container">
-    <button id="exitFullscreenBtn">通常表示に戻す</button>
     <div class="spectrogram-wrapper" id="specWrapper">
-      <canvas id="spectrogramCanvas" width="1000" height="1000"></canvas>
+      <canvas id="spectrogramCanvas"></canvas>
     </div>
   </div>
 
   <script>
     const fileInput = document.getElementById('fileInput');
     const audio = document.getElementById('audio');
-    const statusEl = document.getElementById('status');
+    const playBtn = document.getElementById('playBtn');
+    const seekSlider = document.getElementById('seekSlider');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const infoDiv = document.getElementById('info');
     const specWrapper = document.getElementById('specWrapper');
     const sensSlider = document.getElementById('sensSlider');
     const sensVal = document.getElementById('sensVal');
@@ -201,15 +277,20 @@
     const specCanvas = document.getElementById('spectrogramCanvas');
     const specCtx = specCanvas.getContext('2d');
 
-    const NUM_KEYS = 88;
-    const MIN_MIDI = 21;
+    const STD_KEYS = 88;
+    const TOTAL_KEYS = 112;
+    const MIN_MIDI = 21; // A0
+    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const isBlackKeyList = [false, true, false, true, false, false, true, false, true, false, true, false];
+
     const PIXELS_PER_SECOND = 100;
-    const PIANO_HEIGHT = 28;
+    const PIANO_HEIGHT = 24;
 
     let audioCtx = null;
     let audioBuffer = null;
     let offscreenCanvas = null;
     let isDragging = false;
+    let isUserSeeking = false;
     
     let rawAnalysisData = null; 
     let analysisHeight = 0;
@@ -217,13 +298,24 @@
     let lastViewTop = 0;
     let lastViewHeight = 0;
 
+    const keyLUT = [];
     function midiToFreq(midi) {
       return 440 * Math.pow(2, (midi - 69) / 12);
     }
 
-    function isBlackKey(midi) {
-      const note = midi % 12;
-      return [1, 3, 6, 8, 10].includes(note);
+    // ★ 112鍵（C10まで）全体を赤(0deg)〜紫(320deg)に均等マッピングするように修正
+    for (let i = 0; i < TOTAL_KEYS; i++) {
+      const midi = MIN_MIDI + i;
+      const noteIndex = midi % 12;
+      keyLUT.push({
+        midi: midi,
+        noteName: noteNames[noteIndex],
+        octave: Math.floor(midi / 12) - 1,
+        isBlack: isBlackKeyList[noteIndex],
+        freqCenter: Math.round(midiToFreq(midi)),
+        hue: (i / (TOTAL_KEYS - 1)) * 320, // 88ではなく112(TOTAL_KEYS)全体で割る
+        isExtended: i >= STD_KEYS
+      });
     }
 
     function unlockAudioContext() {
@@ -231,53 +323,56 @@
         audioCtx.resume();
       }
     }
-    audio.addEventListener('play', unlockAudioContext);
+
+    playBtn.addEventListener('click', () => {
+      unlockAudioContext();
+      if (!audio.src) return;
+      if (audio.paused) {
+        audio.play();
+        playBtn.textContent = '停止';
+      } else {
+        audio.pause();
+        playBtn.textContent = '再生';
+      }
+    });
+
+    audio.addEventListener('ended', () => {
+      playBtn.textContent = '再生';
+    });
+
+    function formatTime(sec) {
+      if (isNaN(sec)) return "0:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    seekSlider.addEventListener('input', () => {
+      isUserSeeking = true;
+      if (audio.duration) {
+        const targetTime = (seekSlider.value / 100) * audio.duration;
+        timeDisplay.textContent = `${formatTime(targetTime)} / ${formatTime(audio.duration)}`;
+      }
+    });
+
+    seekSlider.addEventListener('change', () => {
+      if (audio.duration) {
+        audio.currentTime = (seekSlider.value / 100) * audio.duration;
+      }
+      isUserSeeking = false;
+    });
 
     rateSelect.addEventListener('change', () => {
       audio.playbackRate = parseFloat(rateSelect.value);
     });
 
-    // 全画面/最大化切り替え処理 (iOS・Android・PC対応)
-    function toggleFullscreen() {
-      const isFullscreenAPI = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      const isPseudoFullscreen = document.body.classList.contains('is-fullscreen');
+    fullscreenBtn.addEventListener('click', () => {
+      document.body.classList.add('pseudo-fullscreen');
+      resizeCanvasToFit();
+    });
 
-      if (!isFullscreenAPI && !isPseudoFullscreen) {
-        // 全画面化を試みる
-        const docEl = document.documentElement;
-        if (docEl.requestFullscreen) {
-          docEl.requestFullscreen().catch(() => {
-            // iOS等で失敗した場合は疑似全画面にフォールバック
-            document.body.classList.add('is-fullscreen');
-            resizeCanvasToFit();
-          });
-        } else if (docEl.webkitRequestFullscreen) {
-          docEl.webkitRequestFullscreen();
-        } else {
-          // API非対応（iPhone Safari等）
-          document.body.classList.add('is-fullscreen');
-          resizeCanvasToFit();
-        }
-      } else {
-        // 解除処理
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        }
-        document.body.classList.remove('is-fullscreen');
-        resizeCanvasToFit();
-      }
-    }
-
-    fullscreenBtn.addEventListener('click', toggleFullscreen);
     exitFullscreenBtn.addEventListener('click', () => {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      }
-      document.body.classList.remove('is-fullscreen');
+      document.body.classList.remove('pseudo-fullscreen');
       resizeCanvasToFit();
     });
 
@@ -289,60 +384,50 @@
       }
     }
 
-    function updateFullscreenState() {
-      const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.body.classList.contains('is-fullscreen'));
-      fullscreenBtn.textContent = isFullscreen ? '画面標準化' : '画面最大化';
-      document.body.classList.toggle('is-fullscreen', isFullscreen);
-      
-      setTimeout(() => {
-        resizeCanvasToFit();
-      }, 100);
-    }
-
-    document.addEventListener('fullscreenchange', updateFullscreenState);
-    document.addEventListener('webkitfullscreenchange', updateFullscreenState);
-    window.addEventListener('resize', () => {
-      resizeCanvasToFit();
-    });
+    window.addEventListener('resize', resizeCanvasToFit);
     window.addEventListener('orientationchange', () => {
       setTimeout(resizeCanvasToFit, 200);
     });
 
-    // 鍵盤および赤線（再生位置）の描画
     function drawMovingPianoAndPlayhead(ctx, playheadY) {
       const w = ctx.canvas.width;
-      const keyW = w / NUM_KEYS;
-      
+      const keyW = w / TOTAL_KEYS;
       const startY = playheadY;
 
-      for (let i = 0; i < NUM_KEYS; i++) {
-        const midi = i + MIN_MIDI;
+      for (let i = 0; i < TOTAL_KEYS; i++) {
+        const key = keyLUT[i];
         const x = i * keyW;
-        const isBlack = isBlackKey(midi);
 
-        ctx.fillStyle = isBlack ? 'rgba(20, 20, 20, 0.95)' : 'rgba(240, 240, 240, 0.95)';
-        ctx.fillRect(x, startY, keyW, PIANO_HEIGHT);
-        
-        ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(x, startY, keyW, PIANO_HEIGHT);
+        if (key.isBlack) {
+          ctx.fillStyle = key.isExtended ? "rgba(20, 20, 20, 0.95)" : "#1a1a1a";
+          ctx.fillRect(x, startY, keyW - 0.5, PIANO_HEIGHT * 0.7);
+        } else {
+          ctx.fillStyle = key.isExtended ? "#888" : "#fafafa";
+          ctx.fillRect(x, startY, keyW - 0.5, PIANO_HEIGHT);
 
-        if (midi % 12 === 0) {
-          const octave = (midi / 12) - 1;
-          const label = `C${octave}`;
-
-          ctx.fillStyle = '#ff3333';
-          ctx.fillRect(x, startY, 1, PIANO_HEIGHT);
-
-          ctx.fillStyle = isBlack ? '#ff8888' : '#cc0000';
-          ctx.font = 'bold 9px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText(label, x + keyW / 2, startY + 2);
+          if (key.noteName === "C") {
+            ctx.fillStyle = "#ff3333";
+            ctx.font = "bold 8px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(`C${key.octave}`, x + keyW / 2, startY + PIANO_HEIGHT - 2);
+          }
         }
       }
 
-      ctx.strokeStyle = '#ff2222';
+      // C8の位置（88鍵の境界）に青点線を描画
+      const c8BorderX = STD_KEYS * keyW;
+      ctx.save();
+      ctx.strokeStyle = '#00aaff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(c8BorderX, 0);
+      ctx.lineTo(c8BorderX, ctx.canvas.height);
+      ctx.stroke();
+      ctx.restore();
+
+      // 再生位置ライン
+      ctx.strokeStyle = '#ff3333';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, playheadY);
@@ -354,9 +439,10 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      statusEl.textContent = '音声ファイルをデコード中...';
+      infoDiv.textContent = 'デコード中...';
       audio.src = URL.createObjectURL(file);
       audio.playbackRate = parseFloat(rateSelect.value);
+      playBtn.textContent = '再生';
 
       if (!audioCtx) {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -375,10 +461,13 @@
         const calculatedHeight = Math.max(screenMinPx, Math.floor(audioBuffer.duration * PIXELS_PER_SECOND));
         specCanvas.height = calculatedHeight;
 
+        timeDisplay.textContent = `0:00 / ${formatTime(audioBuffer.duration)}`;
+        seekSlider.value = 0;
+
         await renderFullSpectrogram(audioBuffer);
-        statusEl.textContent = '解析完了！';
+        infoDiv.textContent = '解析完了';
       } catch (err) {
-        statusEl.textContent = '音声ファイルの読み込みに失敗しました。';
+        infoDiv.textContent = '読み込み失敗';
       }
     });
 
@@ -388,12 +477,7 @@
       const height = specCanvas.height;
       analysisHeight = height;
 
-      rawAnalysisData = new Float32Array(height * NUM_KEYS);
-
-      const keyFreqs = new Float32Array(NUM_KEYS);
-      for (let i = 0; i < NUM_KEYS; i++) {
-        keyFreqs[i] = midiToFreq(i + MIN_MIDI);
-      }
+      rawAnalysisData = new Float32Array(height * TOTAL_KEYS);
 
       const windowSize = 4096;
       const halfWin = windowSize / 2;
@@ -404,9 +488,9 @@
         hannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / windowSize));
       }
 
-      const keyCoeffs = new Float32Array(NUM_KEYS);
-      for (let k = 0; k < NUM_KEYS; k++) {
-        const omega = (2 * Math.PI * keyFreqs[k]) / sampleRate;
+      const keyCoeffs = new Float32Array(TOTAL_KEYS);
+      for (let k = 0; k < TOTAL_KEYS; k++) {
+        const omega = (2 * Math.PI * midiToFreq(keyLUT[k].midi)) / sampleRate;
         keyCoeffs[k] = 2 * Math.cos(omega);
       }
 
@@ -421,7 +505,7 @@
           frame[n] = (idx >= 0 && idx < totalSamples) ? pcm[idx] * hannWindow[n] : 0;
         }
 
-        for (let k = 0; k < NUM_KEYS; k++) {
+        for (let k = 0; k < TOTAL_KEYS; k++) {
           const coeff = keyCoeffs[k];
           let s1 = 0, s2 = 0;
 
@@ -433,11 +517,11 @@
 
           const power = Math.max(0, s1 * s1 + s2 * s2 - coeff * s1 * s2);
           const mag = Math.sqrt(power) / (windowSize / 4);
-          rawAnalysisData[y * NUM_KEYS + k] = mag;
+          rawAnalysisData[y * TOTAL_KEYS + k] = mag;
         }
 
-        if (y % 100 === 0) {
-          statusEl.textContent = `解析中... (${Math.round((y / height) * 100)}%)`;
+        if (y % 150 === 0) {
+          infoDiv.textContent = `解析中... ${Math.round((y / height) * 100)}%`;
           await new Promise(r => setTimeout(r, 0));
         }
       }
@@ -445,12 +529,34 @@
       updateSpectrogramImage();
     }
 
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
     function updateSpectrogramImage() {
       if (!rawAnalysisData) return;
 
       const width = specCanvas.width;
       const height = analysisHeight;
-      const keyW = width / NUM_KEYS;
+      const keyW = width / TOTAL_KEYS;
       const sensitivity = parseFloat(sensSlider.value);
 
       offscreenCanvas = document.createElement('canvas');
@@ -465,8 +571,8 @@
         data[i] = 255;
       }
 
-      const keyXBounds = new Array(NUM_KEYS);
-      for (let k = 0; k < NUM_KEYS; k++) {
+      const keyXBounds = new Array(TOTAL_KEYS);
+      for (let k = 0; k < TOTAL_KEYS; k++) {
         keyXBounds[k] = {
           start: Math.floor(k * keyW),
           end: Math.floor((k + 1) * keyW)
@@ -475,31 +581,25 @@
 
       for (let y = 0; y < height; y++) {
         const yOffset = y * width;
-        const rowDataIdx = y * NUM_KEYS;
+        const rowDataIdx = y * TOTAL_KEYS;
 
-        for (let k = 0; k < NUM_KEYS; k++) {
-          const mag = rawAnalysisData[rowDataIdx + k];
-          const val = Math.min(1, Math.max(0, Math.log10(1 + mag * 25 * sensitivity)));
+        for (let k = 0; k < TOTAL_KEYS; k++) {
+          let mag = rawAnalysisData[rowDataIdx + k];
+          const key = keyLUT[k];
 
-          if (val > 0.01) {
-            let r = 0, g = 0, b = 0;
-            if (val < 0.25) {
-              b = Math.floor((val / 0.25) * 180);
-            } else if (val < 0.55) {
-              const t = (val - 0.25) / 0.3;
-              g = Math.floor(t * 200);
-              b = 180 + Math.floor(t * 75);
-            } else if (val < 0.85) {
-              const t = (val - 0.55) / 0.3;
-              r = Math.floor(t * 255);
-              g = 200 + Math.floor(t * 55);
-              b = Math.floor((1 - t) * 255);
-            } else {
-              const t = (val - 0.85) / 0.15;
-              r = 255;
-              g = 255;
-              b = Math.floor(t * 255);
-            }
+          // C8以上の高域は微弱なため感度を補正
+          if (key.isExtended) {
+            mag *= 3.0;
+          }
+
+          let val = Math.min(1, Math.max(0, Math.log10(1 + mag * 35 * sensitivity)));
+
+          if (val > 0.001) {
+            const hueNormalized = (key.hue % 360) / 360;
+            const lightness = key.isExtended ? Math.min(0.5, val * 0.45 + 0.05) : (val * 0.55);
+            const saturation = key.isBlack ? 0.6 : 0.8;
+
+            const [r, g, b] = hslToRgb(hueNormalized, saturation, lightness);
 
             const xStart = keyXBounds[k].start;
             const xEnd = keyXBounds[k].end;
@@ -527,11 +627,40 @@
       let playheadY = 0;
 
       if (audio.duration) {
-        const progress = audio.currentTime / audio.duration;
+        const currentTime = audio.currentTime;
+        const progress = currentTime / audio.duration;
         playheadY = (1 - progress) * specCanvas.height;
+
+        if (!isUserSeeking) {
+          seekSlider.value = progress * 100;
+          timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(audio.duration)}`;
+        }
 
         if (!audio.paused && !isDragging) {
           specWrapper.scrollTop = playheadY - specWrapper.clientHeight / 2;
+        }
+
+        if (rawAnalysisData) {
+          const currentY = Math.floor((1 - progress) * analysisHeight);
+          if (currentY >= 0 && currentY < analysisHeight) {
+            let maxMag = -1;
+            let peakIdx = -1;
+            const rowIdx = currentY * TOTAL_KEYS;
+
+            for (let k = 0; k < TOTAL_KEYS; k++) {
+              if (rawAnalysisData[rowIdx + k] > maxMag) {
+                maxMag = rawAnalysisData[rowIdx + k];
+                peakIdx = k;
+              }
+            }
+
+            if (peakIdx !== -1 && maxMag > 0.01) {
+              const pk = keyLUT[peakIdx];
+              infoDiv.innerText = `基音: ${pk.noteName}${pk.octave} (${pk.freqCenter} Hz)`;
+            } else if (!audio.paused) {
+              infoDiv.innerText = "再生中...";
+            }
+          }
         }
       }
 
@@ -552,7 +681,7 @@
             0, clearTop, specCanvas.width, clearH
           );
         } else {
-          specCtx.fillStyle = '#000';
+          specCtx.fillStyle = '#080808';
           specCtx.fillRect(0, clearTop, specCanvas.width, clearH);
         }
       }
