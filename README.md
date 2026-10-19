@@ -1,4 +1,4 @@
-# Spectrum-analyzer
+# sound-Spectrum-analyzer
 このプログラムは、Geminiに指示を与え作らせたものです。
 私はHTMLプログラミングの経験はなく、読んだこともないのですが、一応動くので、
 私のごく親しい友人たちに使ってもらうためにつくりました。
