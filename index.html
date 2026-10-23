@@ -3,26 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>統合版・ピアノ音響＆歌声アナライザー (時間軸調整対応版)</title>
+  <title>統合版・ピアノ音響＆歌声アナライザー</title>
 
   <style>
+    /* ==========================================================================
+       1. 基本スタイル & CSS変数定義
+       ========================================================================== */
+    :root {
+      --bg-dark: #0a0a0c;
+      --panel-bg: #121215;
+      --nav-bg: #16161a;
+      --border-color: #2a2a32;
+      --text-main: #ffffff;
+      --text-sub: #aaaaaa;
+      --accent-blue: #0088ff;
+      --accent-cyan: #00e5ff;
+      --accent-gold: #ffd700;
+      --danger-red: #d32f2f;
+      --active-orange: #ff9800;
+    }
+
     html, body {
       width: 100%;
       height: 100%;
       margin: 0;
       padding: 0;
-      background: #0a0a0c;
-      color: #fff;
+      background: var(--bg-dark);
+      color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       touch-action: manipulation;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
       box-sizing: border-box;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
     body.is-fullscreen #topNav,
@@ -30,9 +44,12 @@
       display: none !important;
     }
 
+    /* ==========================================================================
+       2. ナビゲーション & コントロールパネル
+       ========================================================================== */
     #topNav {
-      background: #16161a;
-      border-bottom: 1px solid #2a2a32;
+      background: var(--nav-bg);
+      border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -50,22 +67,22 @@
       font-size: 13px;
       font-weight: bold;
       background: #25252e;
-      color: #aaa;
+      color: var(--text-sub);
       border: 1px solid #3e3e4a;
       border-radius: 6px;
       cursor: pointer;
-      transition: 0.2s;
+      transition: all 0.2s ease;
     }
 
     .tab-btn.active {
-      background: #0088ff;
+      background: var(--accent-blue);
       color: #fff;
       border-color: #00aaff;
       box-shadow: 0 0 10px rgba(0, 136, 255, 0.4);
     }
 
     .control-panel {
-      background: #121215;
+      background: var(--panel-bg);
       border-bottom: 1px solid #22222a;
       padding: 8px 12px;
       display: flex;
@@ -92,12 +109,13 @@
       color: #eee;
       border: 1px solid #444454;
       border-radius: 5px;
-      transition: 0.15s;
+      transition: background 0.15s, border-color 0.15s;
     }
+
     button.action-btn:active { background: #3b3b4a; }
-    button.action-btn.primary { background: #0088ff; border-color: #00aaff; color: #fff; }
-    button.action-btn.danger { background: #d32f2f; border-color: #f44336; color: #fff; }
-    button.action-btn.active { background: #ff9800; border-color: #ffb74d; color: #000; }
+    button.action-btn.primary { background: var(--accent-blue); border-color: #00aaff; color: #fff; }
+    button.action-btn.danger { background: var(--danger-red); border-color: #f44336; color: #fff; }
+    button.action-btn.active { background: var(--active-orange); border-color: #ffb74d; color: #000; }
 
     .slider-group {
       display: flex;
@@ -106,12 +124,13 @@
       font-size: 12px;
       color: #ccc;
     }
+
     input[type=range] { vertical-align: middle; cursor: pointer; }
 
     #infoStatus {
       font-size: 13px;
       font-weight: bold;
-      color: #00e5ff;
+      color: var(--accent-cyan);
       text-shadow: 0 0 6px rgba(0,229,255,0.3);
       white-space: nowrap;
     }
@@ -120,12 +139,12 @@
       display: inline-block;
       padding: 2px 8px;
       border-radius: 4px;
-      background: #ffd700;
+      background: var(--accent-gold);
       color: #000;
       font-weight: bold;
       font-size: 11px;
       margin-left: 8px;
-      box-shadow: 0 0 8px #ffd700;
+      box-shadow: 0 0 8px var(--accent-gold);
       display: none;
     }
 
@@ -145,6 +164,9 @@
     }
     body.is-fullscreen #exitFullscreenBtn { display: block; }
 
+    /* ==========================================================================
+       3. メイン描画エリア
+       ========================================================================== */
     .main-view {
       flex: 1;
       width: 100%;
@@ -180,6 +202,7 @@
 </head>
 <body>
 
+  <!-- トップナビゲーション -->
   <div id="topNav">
     <div class="nav-tabs">
       <button class="tab-btn active" id="tabRealtimeBtn">🎤 マイク・リアルタイム解析</button>
@@ -188,11 +211,15 @@
     <div id="infoStatus">マイク待機中... <span id="f3Badge" class="f3-badge">★ F3 響き検出！</span></div>
   </div>
 
+  <!-- リアルタイム解析用コントロールパネル -->
   <div class="control-panel" id="panelRealtime">
     <div class="control-group">
       <button class="action-btn primary" id="startMicBtn">マイク開始</button>
       <button class="action-btn" id="freezeBtn">静止 (FREEZE)</button>
-      <button class="action-btn" id="resetPeakBtn">ピークリセット</button>
+      
+      <!-- ピークホールド / ピークリセット スイッチ切替ボタン -->
+      <button class="action-btn active" id="peakToggleBtn">📌 ピークホールド</button>
+      
       <button class="action-btn danger" id="recordOneTapBtn">🔴 ワンタップ録音 (5秒)</button>
       <div class="slider-group">
         <label for="minDbSlider">感度:</label>
@@ -203,6 +230,7 @@
     <button class="action-btn" id="fullscreenBtn1">画面最大化</button>
   </div>
 
+  <!-- スペクトログラム用コントロールパネル -->
   <div class="control-panel" id="panelSpectrogram" style="display: none;">
     <div class="control-group">
       <input type="file" id="fileInput" accept="audio/*" style="font-size:12px; color:#aaa;">
@@ -231,6 +259,7 @@
 
   <button id="exitFullscreenBtn">通常表示に戻す</button>
 
+  <!-- キャンバス描画領域 -->
   <div class="main-view">
     <div class="view-mode active" id="viewRealtime">
       <canvas id="rtCanvas"></canvas>
@@ -246,33 +275,39 @@
   <audio id="audioPlayer"></audio>
 
   <script>
+    /* ==========================================================================
+       1. 音響定数 & 88鍵盤ルックアップテーブル (LUT) の構築
+       ========================================================================== */
     const NUM_KEYS = 88;
-    const MIN_MIDI = 21;
-    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    const isBlackKeyList = [false, true, false, true, false, false, true, false, true, false, true, false];
+    const MIN_MIDI = 21; // A0
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const IS_BLACK_KEY = [false, true, false, true, false, false, true, false, true, false, true, false];
 
+    // MIDI番号から周波数 (Hz) への変換
     function midiToFreq(midi) {
       return 440 * Math.pow(2, (midi - 69) / 12);
     }
 
+    // 88鍵盤の定数データを事前計算して配列化
     const keyLUT = [];
     for (let i = 0; i < NUM_KEYS; i++) {
       const midi = MIN_MIDI + i;
-      const noteIndex = midi % 12;
+      const noteIdx = midi % 12;
       const freqCenter = Math.round(midiToFreq(midi));
       const freqLow = midiToFreq(midi - 0.5);
       const freqHigh = midiToFreq(midi + 0.5);
 
+      // 共鳴・フォルマント領域の分類 (F1, F2, F3)
       let region = "";
-      if (midi >= 60 && midi < 72) region = "F1";
-      else if (midi >= 72 && midi < 96) region = "F2";
-      else if (midi >= 96 && midi <= 104) region = "F3";
+      if (midi >= 60 && midi < 72) region = "F1";       // C4 - B4
+      else if (midi >= 72 && midi < 96) region = "F2";  // C5 - B6
+      else if (midi >= 96 && midi <= 104) region = "F3"; // C7 - G7
 
       keyLUT.push({
         midi: midi,
-        noteName: noteNames[noteIndex],
+        noteName: NOTE_NAMES[noteIdx],
         octave: Math.floor(midi / 12) - 1,
-        isBlack: isBlackKeyList[noteIndex],
+        isBlack: IS_BLACK_KEY[noteIdx],
         freqCenter: freqCenter,
         freqLow: freqLow,
         freqHigh: freqHigh,
@@ -281,11 +316,14 @@
       });
     }
 
+    /* ==========================================================================
+       2. Web Audio API コンテキスト管理
+       ========================================================================== */
     let audioCtx = null;
     function getAudioContext() {
       if (!audioCtx) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContextClass();
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtxClass();
       }
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
@@ -293,6 +331,21 @@
       return audioCtx;
     }
 
+    /* ==========================================================================
+       3. アプリケーション状態変数 (State Management)
+       ========================================================================== */
+    const appState = {
+      isMicActive: false,
+      isFrozen: false,
+      isPeakHold: true,       // 初期状態: ピークホールド (最大値固定) ON
+      minDb: -80,
+      maxDbLimit: 0,
+      peakHoldVolumes: new Float32Array(NUM_KEYS).fill(-200) // 各鍵盤の最大値を記憶
+    };
+
+    /* ==========================================================================
+       4. UI・エレメント参照 & タブ切替イベント
+       ========================================================================== */
     const tabRealtimeBtn = document.getElementById('tabRealtimeBtn');
     const tabSpectrogramBtn = document.getElementById('tabSpectrogramBtn');
     const viewRealtime = document.getElementById('viewRealtime');
@@ -310,9 +363,7 @@
         viewSpectrogram.classList.remove('active');
         panelRealtime.style.display = 'flex';
         panelSpectrogram.style.display = 'none';
-        setTimeout(() => {
-          resizeRtCanvas();
-        }, 50);
+        setTimeout(resizeRtCanvas, 50);
       } else {
         tabRealtimeBtn.classList.remove('active');
         tabSpectrogramBtn.classList.add('active');
@@ -331,12 +382,9 @@
     tabRealtimeBtn.addEventListener('click', () => switchTab('realtime'));
     tabSpectrogramBtn.addEventListener('click', () => switchTab('spectrogram'));
 
+    // 全画面表示切替
     function toggleFullscreen() {
-      if (!document.body.classList.contains('is-fullscreen')) {
-        document.body.classList.add('is-fullscreen');
-      } else {
-        document.body.classList.remove('is-fullscreen');
-      }
+      document.body.classList.toggle('is-fullscreen');
       setTimeout(() => {
         resizeRtCanvas();
         resizeSpecCanvasToFit();
@@ -346,52 +394,62 @@
     document.getElementById('fullscreenBtn2').addEventListener('click', toggleFullscreen);
     document.getElementById('exitFullscreenBtn').addEventListener('click', toggleFullscreen);
 
-    // 1. リアルタイム解析
+    /* ==========================================================================
+       5. リアルタイム解析モジュール (Realtime Spectrum Analyzer)
+       ========================================================================== */
     const rtCanvas = document.getElementById('rtCanvas');
     const rtCtx = rtCanvas.getContext('2d');
     const startMicBtn = document.getElementById('startMicBtn');
     const freezeBtn = document.getElementById('freezeBtn');
-    const resetPeakBtn = document.getElementById('resetPeakBtn');
+    const peakToggleBtn = document.getElementById('peakToggleBtn');
     const recordOneTapBtn = document.getElementById('recordOneTapBtn');
     const minDbSlider = document.getElementById('minDbSlider');
     const minDbVal = document.getElementById('minDbVal');
 
     let analyser = null;
     let micStream = null;
-    let isMicActive = false;
-    let isFrozen = false;
-    let minDb = -80;
-    const maxDbLimit = 0;
 
-    const peakHoldVolumes = new Float32Array(NUM_KEYS).fill(-200);
-
+    // 感度スライダー
     minDbSlider.addEventListener('input', (e) => {
-      minDb = parseInt(e.target.value);
-      minDbVal.innerText = `${minDb} dB`;
+      appState.minDb = parseInt(e.target.value);
+      minDbVal.innerText = `${appState.minDb} dB`;
     });
 
+    // 静止 (FREEZE) ボタン
     freezeBtn.addEventListener('click', () => {
-      isFrozen = !isFrozen;
-      freezeBtn.classList.toggle('active', isFrozen);
-      freezeBtn.innerText = isFrozen ? "解除 (RESUME)" : "静止 (FREEZE)";
+      appState.isFrozen = !appState.isFrozen;
+      freezeBtn.classList.toggle('active', appState.isFrozen);
+      freezeBtn.innerText = appState.isFrozen ? "解除 (RESUME)" : "静止 (FREEZE)";
     });
 
-    resetPeakBtn.addEventListener('click', () => {
-      peakHoldVolumes.fill(-200);
+    // 【要点】ピークホールド ↔ ピークリセット 切替スイッチ
+    peakToggleBtn.addEventListener('click', () => {
+      appState.isPeakHold = !appState.isPeakHold;
+
+      if (appState.isPeakHold) {
+        // ピークホールド モード（最大値の固定保持を開始）
+        peakToggleBtn.innerText = "📌 ピークホールド";
+        peakToggleBtn.classList.add('active');
+      } else {
+        // ピークリセット 実行（蓄積された最大値を即座に全クリア）
+        peakToggleBtn.innerText = "🔄 ピークリセット";
+        peakToggleBtn.classList.remove('active');
+        appState.peakHoldVolumes.fill(-200); // 記憶を消去
+      }
     });
 
     function resizeRtCanvas() {
-      const container = viewRealtime;
-      if (container.clientWidth > 0 && container.clientHeight > 0) {
-        rtCanvas.width = container.clientWidth;
-        rtCanvas.height = container.clientHeight;
+      if (viewRealtime.clientWidth > 0 && viewRealtime.clientHeight > 0) {
+        rtCanvas.width = viewRealtime.clientWidth;
+        rtCanvas.height = viewRealtime.clientHeight;
       }
     }
     window.addEventListener('resize', resizeRtCanvas);
     resizeRtCanvas();
 
+    // マイク開始処理
     startMicBtn.addEventListener('click', async () => {
-      if (isMicActive) return;
+      if (appState.isMicActive) return;
       const ctx = getAudioContext();
 
       try {
@@ -408,18 +466,19 @@
       analyser.smoothingTimeConstant = 0.15;
       source.connect(analyser);
 
-      isMicActive = true;
+      appState.isMicActive = true;
       startMicBtn.style.display = 'none';
       infoStatus.innerText = "マイク解析中...";
       drawRealtimeLoop();
     });
 
+    // ワンタップ録音処理 (5秒間)
     let mediaRecorder = null;
     let recordedChunks = [];
     let isRecording = false;
 
     recordOneTapBtn.addEventListener('click', async () => {
-      if (!isMicActive) {
+      if (!appState.isMicActive) {
         startMicBtn.click();
         await new Promise(r => setTimeout(r, 500));
       }
@@ -468,6 +527,7 @@
       }, 1000);
     });
 
+    // リアルタイム描画メインループ
     function drawRealtimeLoop() {
       requestAnimationFrame(drawRealtimeLoop);
 
@@ -477,7 +537,7 @@
         }
       }
 
-      if (!analyser || isFrozen) return;
+      if (!analyser || appState.isFrozen) return;
 
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Float32Array(bufferLength);
@@ -488,22 +548,24 @@
 
       rtCtx.clearRect(0, 0, rtCanvas.width, rtCanvas.height);
 
+      // レイアウト寸法の計算
       const paddingLeft = 45;
       const indicatorAreaHeight = 25;
-      const regionGuideHeight = 22;
+      const regionGuideHeight = 22; // 上部帯状ガイドの高さ
       const keyAreaHeight = Math.max(35, Math.min(60, rtCanvas.height * 0.16));
       const spectrumWidth = rtCanvas.width - paddingLeft;
       const spectrumHeight = rtCanvas.height - keyAreaHeight - indicatorAreaHeight - regionGuideHeight;
       const barWidth = spectrumWidth / NUM_KEYS;
-      const dbRange = maxDbLimit - minDb;
+      const dbRange = appState.maxDbLimit - appState.minDb;
 
+      // dB 目盛りガイド線の描画
       rtCtx.fillStyle = "#666";
       rtCtx.font = "10px sans-serif";
       rtCtx.textAlign = "right";
       rtCtx.textBaseline = "middle";
 
-      for (let db = maxDbLimit; db >= minDb; db -= 20) {
-        const y = regionGuideHeight + spectrumHeight - (((db - minDb) / dbRange) * spectrumHeight);
+      for (let db = appState.maxDbLimit; db >= appState.minDb; db -= 20) {
+        const y = regionGuideHeight + spectrumHeight - (((db - appState.minDb) / dbRange) * spectrumHeight);
         rtCtx.strokeStyle = "rgba(255, 255, 255, 0.08)";
         rtCtx.beginPath();
         rtCtx.moveTo(paddingLeft, y);
@@ -512,6 +574,7 @@
         rtCtx.fillText(`${db}dB`, paddingLeft - 5, y);
       }
 
+      // 88鍵盤の音量解析＆ピーク更新
       const currentVolumes = new Float32Array(NUM_KEYS);
       let maxVolDb = -200;
       let peakKeyIndex = -1;
@@ -531,13 +594,18 @@
         }
         currentVolumes[i] = maxDb;
 
-        if (maxDb > peakHoldVolumes[i]) {
-          peakHoldVolumes[i] = maxDb;
+        // 【要点】ピークホールド更新ロジック
+        if (appState.isPeakHold) {
+          // 最大値を下回っても減衰させず、常に手動リセットまでの最大値を固定保持
+          if (maxDb > appState.peakHoldVolumes[i]) {
+            appState.peakHoldVolumes[i] = maxDb;
+          }
         } else {
-          peakHoldVolumes[i] -= 0.3;
+          // リセット状態の時はピーク未記録
+          appState.peakHoldVolumes[i] = -200;
         }
 
-        if (maxDb > maxVolDb && maxDb > minDb) {
+        if (maxDb > maxVolDb && maxDb > appState.minDb) {
           maxVolDb = maxDb;
           peakKeyIndex = i;
         }
@@ -548,8 +616,9 @@
         }
       }
 
-      const hasF3Resonance = (f3MaxDb > minDb + 20 && f3MaxDb > maxVolDb - 25);
+      const hasF3Resonance = (f3MaxDb > appState.minDb + 20 && f3MaxDb > maxVolDb - 25);
 
+      // ステータス表示更新
       if (viewRealtime.classList.contains('active')) {
         f3Badge.style.display = hasF3Resonance ? 'inline-block' : 'none';
         if (peakKeyIndex !== -1) {
@@ -560,6 +629,7 @@
         }
       }
 
+      // 上部帯状ガイドの描画 (F1, F2, F3 のヘッダー部のみ)
       for (let i = 0; i < NUM_KEYS; i++) {
         const key = keyLUT[i];
         const x = paddingLeft + (i * barWidth);
@@ -576,6 +646,7 @@
         }
       }
 
+      // 上部ガイドの文字描画
       rtCtx.font = "bold 10px sans-serif";
       rtCtx.textAlign = "center";
       rtCtx.textBaseline = "middle";
@@ -597,12 +668,13 @@
         rtCtx.fillText("★ F3(響き)", paddingLeft + (keyLUT.indexOf(f3Key) * barWidth), regionGuideHeight / 2);
       }
 
+      // 各鍵盤のスペクトラムバー & 白いピーク線の描画
       for (let i = 0; i < NUM_KEYS; i++) {
         const key = keyLUT[i];
         const maxDb = currentVolumes[i];
-        const peakDb = peakHoldVolumes[i];
+        const peakDb = appState.peakHoldVolumes[i];
 
-        let normalized = (maxDb - minDb) / dbRange;
+        let normalized = (maxDb - appState.minDb) / dbRange;
         if (normalized < 0) normalized = 0;
         if (normalized > 1) normalized = 1;
 
@@ -610,30 +682,26 @@
         const x = paddingLeft + (i * barWidth);
         const y = regionGuideHeight + spectrumHeight - barHeight;
 
-        if (key.region === "F1") {
-          rtCtx.fillStyle = "rgba(0, 229, 255, 0.22)";
-        } else if (key.region === "F2") {
-          rtCtx.fillStyle = "rgba(208, 128, 255, 0.22)";
-        } else if (key.region === "F3") {
-          rtCtx.fillStyle = "rgba(255, 215, 0, 0.15)";
-        } else {
-          rtCtx.fillStyle = key.isBlack ? "rgba(10, 10, 10, 0.9)" : "rgba(25, 25, 25, 0.4)";
-        }
+        // 【要点】縦方向の領域網掛けを消去し、標準のキー背景のみにする
+        rtCtx.fillStyle = key.isBlack ? "rgba(10, 10, 10, 0.9)" : "rgba(25, 25, 25, 0.4)";
         rtCtx.fillRect(x, regionGuideHeight, barWidth - 0.5, spectrumHeight);
 
+        // 現在のリアルタイム音量バー
         if (barHeight > 1) {
           rtCtx.fillStyle = key.region === "F3" ? `hsl(45, 100%, 60%)` : `hsl(${key.hue}, 80%, 55%)`;
           rtCtx.fillRect(x, y, barWidth - 0.5, barHeight);
         }
 
-        if (peakDb > minDb) {
-          let pkNorm = (peakDb - minDb) / dbRange;
+        // 固定保持された最大ピーク線 (白い線)
+        if (appState.isPeakHold && peakDb > appState.minDb) {
+          let pkNorm = (peakDb - appState.minDb) / dbRange;
           if (pkNorm > 1) pkNorm = 1;
           const pkY = regionGuideHeight + spectrumHeight - (pkNorm * spectrumHeight);
           rtCtx.fillStyle = "#ffffff";
           rtCtx.fillRect(x, pkY, barWidth - 0.5, 2);
         }
 
+        // 下部鍵盤ガイドの描画
         const keyY = regionGuideHeight + spectrumHeight;
         if (key.isBlack) {
           rtCtx.fillStyle = "#1a1a1a";
@@ -650,10 +718,11 @@
           }
         }
 
+        // ピークインジケータードット
         const centerX = x + barWidth / 2;
         const centerY = rtCanvas.height - indicatorAreaHeight / 2;
 
-        if (i === peakKeyIndex && maxVolDb > minDb) {
+        if (i === peakKeyIndex && maxVolDb > appState.minDb) {
           rtCtx.beginPath();
           rtCtx.arc(centerX, centerY, Math.min(barWidth * 1.2, 6), 0, Math.PI * 2);
           rtCtx.fillStyle = "#00aaff";
@@ -669,7 +738,9 @@
       }
     }
 
-    // 2. 録音 & 音声ファイル縦スクロールスペクトログラム
+    /* ==========================================================================
+       6. スペクトログラム解析モジュール (Spectrogram Viewer)
+       ========================================================================== */
     const specCanvas = document.getElementById('specCanvas');
     const specCtx = specCanvas.getContext('2d');
     const specWrapper = document.getElementById('specWrapper');
@@ -703,6 +774,7 @@
     }
     window.addEventListener('resize', resizeSpecCanvasToFit);
 
+    // 音声再生ボタン
     playAudioBtn.addEventListener('click', async () => {
       getAudioContext();
       if (!audioPlayer.src) {
@@ -734,7 +806,6 @@
       audioPlayer.playbackRate = parseFloat(rateSelect.value);
     });
 
-    // 時間軸スライダーイベント（リアルタイム感度・デバウンス付き再描画）
     timeScaleSlider.addEventListener('input', () => {
       const pps = parseInt(timeScaleSlider.value);
       timeScaleVal.innerText = `${pps} px/s`;
@@ -747,6 +818,7 @@
       }
     });
 
+    // ファイル読み込み処理
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -762,6 +834,7 @@
       fileInput.value = '';
     });
 
+    // AudioBuffer を読み込んでスペクトログラム生成
     async function loadAudioBufferToSpectrogram(buffer, name, mediaSrcUrl, isNewSource = true) {
       if (isNewSource) {
         if (audioPlayer) {
@@ -787,7 +860,7 @@
       const wrapperW = specWrapper.clientWidth || 1000;
       specCanvas.width = wrapperW;
 
-      const MAX_CANVAS_HEIGHT = 8000; // ブラウザ許容高度上限
+      const MAX_CANVAS_HEIGHT = 8000;
       const screenMinPx = specWrapper.clientHeight || 500;
       
       let pps = parseInt(timeScaleSlider.value) || 100;
@@ -807,6 +880,7 @@
       startSpectrogramLoop();
     }
 
+    // Goertzelアルゴリズムによる高精度周波数解析
     async function renderFullSpectrogram(buffer) {
       const pcm = buffer.getChannelData(0);
       const sampleRate = buffer.sampleRate;
@@ -864,6 +938,7 @@
       updateSpectrogramImage();
     }
 
+    // オフスクリーンキャンバスへのヒートマップ画像描画
     function updateSpectrogramImage() {
       if (!rawAnalysisData) return;
 
@@ -936,6 +1011,7 @@
       }
     }
 
+    // 縦スクロールアニメーション描画
     function redrawSpectrogramLoop() {
       if (!viewSpectrogram.classList.contains('active')) {
         isLoopRunning = false;
@@ -965,29 +1041,13 @@
       requestAnimationFrame(redrawSpectrogramLoop);
     }
 
+    // 移動ピアノ鍵盤 & 最上部ヘッダーガイドの描画
     function drawMovingPianoAndPlayhead(ctx, playheadY) {
       const w = ctx.canvas.width;
       const keyW = w / NUM_KEYS;
       const startY = playheadY;
 
-      // 1. F1, F2, F3 領域の背景網掛け描画（縦軸全体）
-      for (let i = 0; i < NUM_KEYS; i++) {
-        const key = keyLUT[i];
-        const x = i * keyW;
-
-        if (key.region === "F1") {
-          ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
-          ctx.fillRect(x, 0, keyW, ctx.canvas.height);
-        } else if (key.region === "F2") {
-          ctx.fillStyle = 'rgba(208, 128, 255, 0.25)';
-          ctx.fillRect(x, 0, keyW, ctx.canvas.height);
-        } else if (key.region === "F3") {
-          ctx.fillStyle = 'rgba(255, 215, 0, 0.18)';
-          ctx.fillRect(x, 0, keyW, ctx.canvas.height);
-        }
-      }
-
-      // 2. 移動ピアノ鍵盤本体の描画
+      // 1. 移動ピアノ鍵盤本体
       for (let i = 0; i < NUM_KEYS; i++) {
         const key = keyLUT[i];
         const x = i * keyW;
@@ -1014,7 +1074,7 @@
       ctx.lineTo(w, playheadY);
       ctx.stroke();
 
-      // 3. 表示画面の最上部（スクロール固定位置）に帯域ヘッダーガイドを描画
+      // 2. 最上部に固定表示される領域ガイド（帯状ヘッダーのみ）
       const guideY = specWrapper.scrollTop;
       const guideH = 22;
 
@@ -1056,6 +1116,7 @@
       }
     }
 
+    // タッチ・クリックシーク
     function seekToPosition(clientY) {
       if (!audioPlayer.duration || !specAudioBuffer) return;
       const rect = specCanvas.getBoundingClientRect();
